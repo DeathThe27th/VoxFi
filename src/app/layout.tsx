@@ -4,6 +4,7 @@ import "./globals.css";
 import "./extended.css";
 import "./detail.css";
 import "./owner.css";
+import "./landing-reference.css";
 import { AppProviders } from "@/components/app-providers";
 
 export const metadata: Metadata = {
