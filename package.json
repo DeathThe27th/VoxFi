@@ -11,13 +11,15 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "contracts:compile": "node --import tsx scripts/compile-contracts.ts",
-    "contracts:deploy": "node --import tsx scripts/deploy-testnet.ts"
-    ,"contracts:verify-session": "node --import tsx scripts/verify-session-testnet.ts"
-    ,"test:testnet-execution": "node --import tsx scripts/verify-execution-testnet.ts"
-    ,"contracts:limit-allowances": "node --import tsx scripts/limit-testnet-allowances.ts"
+    "contracts:deploy": "node --import tsx scripts/deploy-testnet.ts",
+    "contracts:verify-session": "node --import tsx scripts/verify-session-testnet.ts",
+    "test:testnet-execution": "node --import tsx scripts/verify-execution-testnet.ts",
+    "contracts:limit-allowances": "node --import tsx scripts/limit-testnet-allowances.ts"
   },
   "dependencies": {
     "@google/genai": "latest",
+    "@privy-io/react-auth": "3.37.1",
+    "@stripe/stripe-js": "^9.13.0",
     "@tanstack/react-query": "latest",
     "next": "latest",
     "react": "latest",

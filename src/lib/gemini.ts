@@ -25,10 +25,10 @@ Read queries use read. Do not claim execution occurred. A transfer recipient mus
 export async function understandAudio(audio: Uint8Array, mimeType: string, pendingPlan: Plan | null) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY is not configured");
-  const ai = new GoogleGenAI({ apiKey: key });
+  const ai = new GoogleGenAI({ apiKey: key, httpOptions:{timeout:25_000,retryOptions:{attempts:2}} });
   const context = pendingPlan ? `Pending plan: ${JSON.stringify(pendingPlan)}` : "There is no pending plan.";
   const response = await ai.models.generateContent({
-    model: process.env.GEMINI_MODEL ?? "gemini-3-flash-preview",
+    model: process.env.GEMINI_MODEL ?? "gemini-2.5-flash",
     contents: [{ role: "user", parts: [{ text: context }, { inlineData: { data: Buffer.from(audio).toString("base64"), mimeType } }] }],
     config: { systemInstruction: system, responseMimeType: "application/json", responseJsonSchema: outputSchema },
   });

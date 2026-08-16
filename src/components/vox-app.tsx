@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePrivy } from "@privy-io/react-auth";
 import { Arrow, Clock, Home, Mic, Sliders } from "./icons";
 
 type Tab = "home" | "activity" | "settings";
 type VoiceReply = { speak: string; state: string; requiresResponse: boolean; transcript?:string; plan: null | { actions: Array<{type:string; tokenIn?:string; tokenOut?:string; amount?:{value:string;type:string}}> }; resolvedActions?:Array<{type:string;tokenIn?:string;tokenOut?:string;amountIn?:string;expectedOut?:string;minimumOut?:string;provider?:string;network?:string}>;ownerActions?:Array<{type:string;ownerTransaction?:{to:string;data:string;value:string}}> };
 type EthereumProvider={request(args:{method:string;params?:unknown[]}):Promise<unknown>;on?(event:"accountsChanged",listener:(accounts:string[])=>void):void;removeListener?(event:"accountsChanged",listener:(accounts:string[])=>void):void};
-declare global{interface Window{ethereum?:EthereumProvider}}
 
 export function VoxApp() {
+  const {ready:authReady,authenticated,login,logout,user}=usePrivy();
   const [tab, setTab] = useState<Tab>("home");
   const [listening, setListening] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -20,7 +21,7 @@ export function VoxApp() {
   const [owner,setOwner]=useState(""); const [ready,setReady]=useState(false); const [setupBusy,setSetupBusy]=useState(false);
   const [setupStatus,setSetupStatus]=useState("");
   const [portfolio,setPortfolio]=useState<{estimatedTestUsd:string;balances:Array<{symbol:string;formatted:string}>}|null>(null);
-  useEffect(()=>{if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(()=>undefined);const id=window.setTimeout(()=>setReady(localStorage.getItem("voxReady")==="true"),0);const provider=window.ethereum;if(!provider)return()=>window.clearTimeout(id);const syncAccounts=(accounts:string[])=>setOwner(accounts[0]??"");provider.request({method:"eth_accounts"}).then(accounts=>syncAccounts(accounts as string[])).catch(()=>syncAccounts([]));provider.on?.("accountsChanged",syncAccounts);return()=>{window.clearTimeout(id);provider.removeListener?.("accountsChanged",syncAccounts)}},[]);
+  useEffect(()=>{if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(()=>undefined);const id=window.setTimeout(()=>setReady(localStorage.getItem("voxReady")==="true"),0);const provider=window.ethereum as EthereumProvider|undefined;if(!provider)return()=>window.clearTimeout(id);const syncAccounts=(accounts:string[])=>setOwner(accounts[0]??"");provider.request({method:"eth_accounts"}).then((accounts:unknown)=>syncAccounts(accounts as string[])).catch(()=>syncAccounts([]));provider.on?.("accountsChanged",syncAccounts);return()=>{window.clearTimeout(id);provider.removeListener?.("accountsChanged",syncAccounts)}},[]);
   useEffect(()=>{if(ready)fetch("/api/portfolio?address=0x576a6fc07724d6cf1e4a9a154f0e28f9a2940b24").then(r=>r.json()).then(setPortfolio).catch(()=>setPortfolio(null))},[ready]);
 
   async function connect(){if(!window.ethereum)throw new Error("Install or open an EVM wallet browser");await window.ethereum.request({method:"wallet_switchEthereumChain",params:[{chainId:"0x7a0"}]}).catch(async()=>window.ethereum!.request({method:"wallet_addEthereumChain",params:[{chainId:"0x7a0",chainName:"X Layer Testnet",nativeCurrency:{name:"OKB",symbol:"OKB",decimals:18},rpcUrls:["https://testrpc.xlayer.tech/terigon"],blockExplorerUrls:["https://www.okx.com/web3/explorer/xlayer-test"]}]}));const accounts=await window.ethereum.request({method:"eth_requestAccounts"}) as string[];if(!accounts[0])throw new Error("Wallet connection was cancelled");setOwner(accounts[0]);return accounts[0];}
@@ -48,9 +49,11 @@ export function VoxApp() {
     } catch { setError("Microphone access is required to speak with Vox."); }
   }
 
+  if(!authReady)return <main className="shell auth-screen"><div className="wordmark">vox<span>.</span></div><p>Loading secure sign-in…</p></main>;
+  if(!authenticated)return <AuthScreen login={login}/>;
   if(!ready)return <Onboarding owner={owner} busy={setupBusy} status={setupStatus} error={error} connect={async()=>{try{await connect()}catch(e){setError(e instanceof Error?e.message:"Connection failed")}}} setup={setup}/>;
   return <main className="shell">
-    <header className="topbar"><div className="wordmark">vox<span>.</span></div><button className="network"><i/> X Layer Testnet</button><button className="avatar" aria-label="Wallet">V</button></header>
+    <header className="topbar"><div className="wordmark">vox<span>.</span></div><button className="network"><i/> X Layer Testnet</button><button className="avatar" aria-label="Sign out" title="Sign out" onClick={logout}>{user?.email?.address?.slice(0,1).toUpperCase()||"V"}</button></header>
     <section className="content">
       {tab === "home" && <HomeScreen listening={listening} busy={busy} reply={reply} error={error} portfolio={portfolio} onMic={toggleRecording}/>} 
       {tab === "activity" && <Activity/>}
@@ -64,6 +67,8 @@ export function VoxApp() {
   </main>;
 }
 
+function AuthScreen({login}:{login:()=>void}){return <main className="shell onboarding auth-screen"><div className="wordmark">vox<span>.</span></div><div className="onboarding-copy"><div className="eyebrow">WELCOME TO VOX</div><h1>Your voice. Your wallet.</h1><p>Sign in with email, Google, or an existing wallet. Vox creates a secure embedded wallet for email users.</p></div><button className="primary" onClick={login}>Sign in to Vox</button><p className="disclaimer">Vox runs on X Layer Testnet. Do not deposit real assets.</p></main>}
+
 function Onboarding({owner,busy,status,error,connect,setup}:{owner:string;busy:boolean;status:string;error:string;connect:()=>void;setup:()=>void}){return <main className="shell onboarding"><div className="wordmark">vox<span>.</span></div><div className="onboarding-copy"><div className="eyebrow">WELCOME TO VOX</div><h1>Finance, at the speed of speech.</h1><p>Connect your owner wallet once, authorize a limited testnet session, then speak naturally to act onchain.</p></div><div className="setup-list"><div className={owner?"done":"current"}><b>1</b><span><strong>Connect owner wallet</strong><small>{owner?`${owner.slice(0,6)}…${owner.slice(-4)}`:"X Layer Testnet"}</small></span></div><div className={owner?"current":""}><b>2</b><span><strong>Configure Vox account</strong><small>{status||"Finite test-asset allowances and a 24-hour session"}</small></span></div><div><b>3</b><span><strong>Speak with Vox</strong><small>Every action still needs confirmation</small></span></div></div>{error&&<div className="error">{error}</div>}<button className="primary" disabled={busy} onClick={owner?setup:connect}>{busy?status||"Configuring on X Layer…":owner?"Review & authorize Vox":"Connect wallet"}</button><p className="disclaimer">Only use the disposable X Layer Testnet wallet. If MetaMask labels a request malicious, reject it; Vox will not ask you to bypass that warning.</p></main>}
 
 function Nav({active,label,icon,onClick}:{active:boolean;label:string;icon:React.ReactNode;onClick:()=>void}) { return <button className={active?"active":""} onClick={onClick}>{icon}<span>{label}</span></button>; }
@@ -76,7 +81,7 @@ function HomeScreen({listening,busy,reply,error,portfolio,onMic}:{listening:bool
     <p className="hint">{listening ? "Tap when you’re finished" : "Tap the microphone and speak naturally"}</p>
     {error && <div className="error">{error}</div>}
     {reply && <div className="reply"><div className="reply-label">VOX UNDERSTOOD</div>{reply.transcript&&<small className="transcript">“{reply.transcript}”</small>}<p>{reply.speak}</p>{reply.plan && <Plan plan={reply.plan} resolved={reply.resolvedActions}/>} {reply.ownerActions?.some(a=>a.ownerTransaction)&&<button className="owner-approve" onClick={async()=>{const accounts=await window.ethereum?.request({method:"eth_requestAccounts"}) as string[];for(const action of reply.ownerActions??[])if(action.ownerTransaction)await window.ethereum?.request({method:"eth_sendTransaction",params:[{from:accounts[0],...action.ownerTransaction}]})}}>Approve with owner wallet</button>}</div>}
-    {!reply && <div className="suggestions"><button>“How much OKB do I have?”</button><button>“Send 0.01 OKB to…”</button></div>}
+    {!reply && <div className="suggestions" aria-label="Things you can say"><span>“How much test USDC do I have?”</span><span>“Swap 0.01 test ETH to test USDC”</span></div>}
   </div>;
 }
 
@@ -84,5 +89,5 @@ function Plan({plan,resolved}:{plan:NonNullable<VoiceReply["plan"]>;resolved?:Vo
 
 function Activity() { const[items,setItems]=useState<Array<{id:string;summary:string;status:string;timestamp:string;transactionHash?:string}>>([]);useEffect(()=>{fetch("/api/activity").then(r=>r.json()).then(d=>setItems(d.activity??[]))},[]);return <div className="page"><div className="eyebrow">HISTORY</div><h1>Activity</h1>{items.length? <div className="activity-list">{items.map(x=><a key={x.id} href={x.transactionHash?`https://www.okx.com/web3/explorer/xlayer-test/tx/${x.transactionHash}`:undefined} target="_blank"><span className="status-dot"/><div><strong>{x.summary}</strong><small>{new Date(x.timestamp).toLocaleString()} · {x.status}</small></div><Arrow/></a>)}</div>:<div className="empty"><Clock size={28}/><h2>No activity yet</h2><p>Your completed onchain actions will appear here with their real transaction status.</p></div>}</div>; }
 
-function Settings({owner,onRevoked}:{owner:string;onRevoked:()=>void}) { const[message,setMessage]=useState("");async function revoke(){try{const tx=await fetch("/api/session/revoke",{method:"POST"}).then(r=>r.json());const hash=await window.ethereum?.request({method:"eth_sendTransaction",params:[{from:owner,to:tx.to,data:tx.data,value:"0x0"}]});setMessage(`Revocation submitted: ${String(hash).slice(0,12)}…`);onRevoked()}catch(e){setMessage(e instanceof Error?e.message:"Revocation failed")}}return <div className="page settings"><div className="eyebrow">CONTROL CENTER</div><h1>Settings</h1><section><h2>Voice</h2><Setting title="Spoken responses" detail="Read plans and results aloud" toggle/><Setting title="Language" detail="Auto-detect"/><Setting title="Shortcut duration" detail="10 seconds"/></section><section><h2>Authorization</h2><Setting title="Voice transactions" detail="Active on X Layer Testnet" toggle/><Setting title="Per-transaction native value" detail="0 OKB; test-token swaps only"/><Setting title="Session expiry" detail="24 hours"/><Setting title="Allowed assets" detail="tETH, tUSDC"/></section><section><h2>Wallet</h2><Setting title="Owner" detail={owner?`${owner.slice(0,8)}…${owner.slice(-6)}`:"Not connected"}/><Setting title="Smart account" detail="0x576a…0b24"/></section><section><h2>Security</h2><button className="revoke" onClick={revoke}>Revoke Vox access</button><p className="fine">{message||"Immediately disables delegated execution. Owner control remains."}</p></section></div>; }
+function Settings({owner,onRevoked}:{owner:string;onRevoked:()=>void}) { const[message,setMessage]=useState("");async function revoke(){try{const tx=await fetch("/api/session/revoke",{method:"POST"}).then(r=>r.json());const hash=await window.ethereum?.request({method:"eth_sendTransaction",params:[{from:owner,to:tx.to,data:tx.data,value:"0x0"}]});setMessage(`Revocation submitted: ${String(hash).slice(0,12)}…`);onRevoked()}catch(e){setMessage(e instanceof Error?e.message:"Revocation failed")}}return <div className="page settings"><div className="eyebrow">CONTROL CENTER</div><h1>Settings</h1><section><h2>Voice</h2><Setting title="Spoken responses" detail="Enabled through browser speech"/><Setting title="Language" detail="Detected from each request"/></section><section><h2>Authorization</h2><Setting title="Voice transactions" detail="Test-token swaps only"/><Setting title="Native value limit" detail="0 OKB"/><Setting title="Session expiry" detail="24 hours after authorization"/><Setting title="Allowed assets" detail="tETH and tUSDC"/></section><section><h2>Wallet</h2><Setting title="Owner" detail={owner?`${owner.slice(0,8)}…${owner.slice(-6)}`:"Not connected"}/><Setting title="Demo smart account" detail="0x576a…0b24"/></section><section><h2>Security</h2><button className="revoke" disabled={!owner} onClick={revoke}>Revoke Vox access</button><p className="fine">{message||"Revocation requires the connected owner wallet."}</p></section></div>; }
 function Setting({title,detail,toggle}:{title:string;detail:string;toggle?:boolean}) { return <div className="setting"><div><strong>{title}</strong><small>{detail}</small></div>{toggle?<span className="toggle"/>:<Arrow/>}</div>; }

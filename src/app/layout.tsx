@@ -3,6 +3,7 @@ import "./globals.css";
 import "./extended.css";
 import "./detail.css";
 import "./owner.css";
+import { AppProviders } from "@/components/app-providers";
 
 export const metadata: Metadata = {
   title: "Vox — Speak finance into motion",
@@ -16,5 +17,5 @@ export const metadata: Metadata = {
 export const viewport: Viewport = { width: "device-width", initialScale: 1, maximumScale: 1, themeColor: "#f4f3ef" };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body style={{ fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif" }}>{children}</body></html>;
+  return <html lang="en"><body style={{ fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif" }}><AppProviders>{children}</AppProviders></body></html>;
 }
