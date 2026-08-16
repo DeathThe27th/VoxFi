@@ -1,0 +1,43 @@
+{
+  "name": "voxfi",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "contracts:compile": "node --import tsx scripts/compile-contracts.ts",
+    "contracts:deploy": "node --import tsx scripts/deploy-testnet.ts"
+    ,"contracts:verify-session": "node --import tsx scripts/verify-session-testnet.ts"
+    ,"test:testnet-execution": "node --import tsx scripts/verify-execution-testnet.ts"
+  },
+  "dependencies": {
+    "@google/genai": "latest",
+    "@tanstack/react-query": "latest",
+    "next": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "viem": "latest",
+    "wagmi": "latest",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "latest",
+    "@testing-library/jest-dom": "latest",
+    "@testing-library/react": "latest",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "eslint": "latest",
+    "eslint-config-next": "latest",
+    "jsdom": "29.0.0",
+    "solc": "latest",
+    "tsx": "latest",
+    "typescript": "5.9.3",
+    "vitest": "latest"
+  }
+}

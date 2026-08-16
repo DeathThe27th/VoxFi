@@ -1,0 +1,14 @@
+# Local environment secrets
+.env.local
+.env*.local
+
+# Dependencies and generated output
+node_modules/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+
+# Local tooling
+.DS_Store
+*.log
