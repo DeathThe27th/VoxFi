@@ -14,6 +14,7 @@
     "contracts:deploy": "node --import tsx scripts/deploy-testnet.ts"
     ,"contracts:verify-session": "node --import tsx scripts/verify-session-testnet.ts"
     ,"test:testnet-execution": "node --import tsx scripts/verify-execution-testnet.ts"
+    ,"contracts:limit-allowances": "node --import tsx scripts/limit-testnet-allowances.ts"
   },
   "dependencies": {
     "@google/genai": "latest",
