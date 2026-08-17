@@ -45,9 +45,11 @@ Only the first three entries represented in `.env.example` are required for the 
 
 ## Architecture and security
 
+- Authenticated API requests require a verified Privy bearer token. Conversations, quotes, and activity are isolated by Privy user ID.
 - `POST /api/voice/turn` accepts a supported audio file up to 12 MB and optional conversation/wallet identifiers.
 - Gemini produces schema-constrained intent. Zod validates it again at the trust boundary.
 - Plan modifications always create a new plan ID/revision and return to confirmation. A leading “yes” cannot approve added or changed actions.
+- Confirmation executes the exact stored quote and calldata that was reviewed; expired or missing quotes are rejected instead of silently rebuilt.
 - The token registry is the only source of token addresses.
 - `SwapProvider` separates quoting/building from conversational interpretation.
 - `VoxSessionAccount` restricts the session signer by chain (signature domain), target, selector, expiry, per-call native value, aggregate native value, nonce, and revocation state. The owner retains direct execution and revocation.
@@ -115,3 +117,4 @@ For Vercel, import the repository, add server-only environment variables, and de
 - This hackathon deployment supports its configured disposable owner wallet and one deployed demo smart account; a general per-user factory is a mainnet-hardening task.
 - Test assets are openly mintable and have no value. They exist only to demonstrate real quotes and real state transitions where public testnet liquidity is unavailable.
 - Rate limiting is instance-local; production requires a distributed limiter.
+- The shared demo-wallet funding endpoint is disabled unless `VOX_ENABLE_TESTNET_FUNDING=true`; keep it disabled on public deployments.

@@ -3,6 +3,7 @@ import { createPublicClient, createWalletClient, encodeFunctionData, http, parse
 import { privateKeyToAccount } from "viem/accounts";
 import { xLayerTestnet, rpcUrl } from "@/lib/chain";
 import { testnetDeployments } from "@/lib/deployments";
+import { AuthError,errorResponse,requireUser } from "@/lib/auth";
 
 const sessionAbi = [
   { type:"function",name:"configureSession",stateMutability:"nonpayable",inputs:[{name:"key",type:"address"},{name:"target",type:"address"},{name:"selector",type:"bytes4"},{name:"expiry",type:"uint48"},{name:"perCall",type:"uint96"},{name:"total",type:"uint96"}],outputs:[] },
@@ -25,8 +26,9 @@ function sessionAccount() {
   return privateKeyToAccount(`0x${raw.replace(/^0x/,"")}`);
 }
 
-export async function GET() {
+export async function GET(request:Request) {
   try {
+    await requireUser(request);
     const client=createPublicClient({chain:xLayerTestnet,transport:http(rpcUrl)});
     const [owner,revoked,expiresAt,tEthAllowance,tUsdcAllowance]=await Promise.all([
       client.readContract({address:testnetDeployments.sessionAccount,abi:sessionAbi,functionName:"owner"}),
@@ -43,11 +45,13 @@ export async function GET() {
     if(tUsdcAllowance<finiteTUsdc){const approval=encodeFunctionData({abi:tokenAbi,functionName:"approve",args:[testnetDeployments.amm,finiteTUsdc]});transactions.push({label:"Allow test USDC swaps",description:"A finite 300,000 tUSDC test-only allowance to the immutable Vox test AMM.",to:testnetDeployments.sessionAccount,data:encodeFunctionData({abi:sessionAbi,functionName:"executeOwner",args:[testnetDeployments.tUsdc,0n,approval]})});}
     transactions.push({label:"Authorize Vox session",description:"Authorize the separate Vox session key for AMM swaps only, expiring in 24 hours.",to:testnetDeployments.sessionAccount,data:configureData});
     return NextResponse.json({chainId:xLayerTestnet.id,owner,smartAccount:testnetDeployments.sessionAccount,sessionAddress:sessionAccount().address,revoked,expiresAt:Number(expiresAt),transactions});
-  } catch(error) { return NextResponse.json({error:error instanceof Error?error.message:"Session setup failed"},{status:500}); }
+  } catch(error) { const response=errorResponse(error,"Session setup failed");return NextResponse.json(await response.json(),{status:error instanceof AuthError?401:500}); }
 }
 
-export async function POST() {
+export async function POST(request:Request) {
   try {
+    await requireUser(request);
+    if(process.env.VOX_ENABLE_TESTNET_FUNDING!=="true")return NextResponse.json({error:"Public test-asset funding is disabled"},{status:403});
     const raw=process.env.VOX_DEV_WALLET_PRIVATE_KEY;
     if(!raw) throw new Error("Development relayer not configured");
     const account=privateKeyToAccount(`0x${raw.replace(/^0x/,"")}`); const transport=http(rpcUrl);
@@ -57,5 +61,5 @@ export async function POST() {
       const hash=await wallet.writeContract({address,abi:tokenAbi,functionName:"mint",args:[testnetDeployments.sessionAccount,amount]}); const receipt=await client.waitForTransactionReceipt({hash});if(receipt.status!=="success")throw new Error(`Test-asset funding reverted: ${hash}`);hashes.push(hash);
     }
     return NextResponse.json({funded:true,hashes});
-  } catch(error) { return NextResponse.json({error:error instanceof Error?error.message:"Funding failed"},{status:500}); }
+  } catch(error) { const response=errorResponse(error,"Funding failed");return NextResponse.json(await response.json(),{status:error instanceof AuthError?401:500}); }
 }
