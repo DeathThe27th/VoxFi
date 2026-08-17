@@ -11,6 +11,7 @@ import { rpcUrl,xLayerTestnet } from "@/lib/chain";
 import { testnetDeployments } from "@/lib/deployments";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 const allowedTypes = new Set(["audio/webm", "audio/mp4", "audio/mpeg", "audio/wav", "audio/x-m4a", "audio/aac", "audio/ogg"]);
 const maxBytes = 12 * 1024 * 1024;
 const rateGlobal=globalThis as typeof globalThis&{voxVoiceRate?:Map<string,{count:number;reset:number}>};const rates=rateGlobal.voxVoiceRate??new Map<string,{count:number;reset:number}>();rateGlobal.voxVoiceRate=rates;
@@ -43,6 +44,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ conversationId, speak, requiresResponse: turn.requiresUserResponse, state: next.status, plan: next.pendingPlan, resolvedActions, transcript:turn.transcript });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to process this voice turn";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const unavailable = /not configured|returned no structured output|timed out|timeout|RPC/i.test(message);
+    return NextResponse.json({ error: message }, { status: unavailable ? 503 : 500 });
   }
 }
